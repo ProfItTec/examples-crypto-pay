@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Платёж успешен!</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 48px;
+      text-align: center;
+      max-width: 400px;
+    }
+    
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 2px solid #22c55e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 40px;
+    }
+    
+    h1 {
+      color: #22c55e;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      color: #9ca3af;
+      margin-bottom: 32px;
+    }
+    
+    .balance {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .balance-label {
+      font-size: 14px;
+      color: #9ca3af;
+    }
+    
+    .balance-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #22c55e;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #1a1a2e;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(251, 191, 36, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✓</div>
+    <h1>Платёж успешен!</h1>
+    <p>Ваш баланс пополнен</p>
+    
+    <div class="balance">
+      <div class="balance-label">Текущий баланс</div>
+      <div class="balance-value" id="balance">$0.00</div>
+    </div>
+    
+    <a href="index.html" class="btn">Вернуться в казино</a>
+  </div>
+
+  <script>
+    const CONFIG = {
+      MERCHANT_SERVER: 'http://localhost:4000',
+      USER_ID: 'user-123',
+    };
+    
+    async function loadBalance() {
+      try {
+        const response = await fetch(
+          `${CONFIG.MERCHANT_SERVER}/api/users/${CONFIG.USER_ID}/balance`
+        );
+        const data = await response.json();
+        if (data.success) {
+          document.getElementById('balance').textContent = 
+            `$${data.data.balance.toFixed(2)}`;
+        }
+      } catch (error) {
+        console.error('Failed to load balance:', error);
+      }
+    }
+    
+    loadBalance();
+  </script>
+</body>
+</html>

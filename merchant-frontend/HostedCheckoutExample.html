@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пример: Hosted Checkout (Редирект на платёжный шлюз)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 6px;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .info-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .info-box code {
+      background: #e9ecef;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .error {
+      background: #fee;
+      color: #c00;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>💳 Пополнение баланса</h1>
+    <p class="subtitle">Вы будете перенаправлены на страницу оплаты</p>
+    
+    <div class="error" id="error"></div>
+    
+    <form id="paymentForm">
+      <div class="form-group">
+        <label for="amount">Сумма</label>
+        <input type="number" id="amount" placeholder="100" min="1" step="0.01" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="network">Сеть</label>
+        <select id="network" required>
+          <option value="ethereum">Ethereum</option>
+          <option value="bsc">BNB Smart Chain</option>
+          <option value="polygon">Polygon</option>
+          <option value="arbitrum">Arbitrum</option>
+          <option value="tron">Tron</option>
+          <option value="bitcoin">Bitcoin</option>
+          <option value="litecoin">Litecoin</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="currency">Валюта</label>
+        <select id="currency" required>
+          <option value="USDT">USDT</option>
+          <option value="USDC">USDC</option>
+          <option value="ETH">ETH</option>
+          <option value="BNB">BNB</option>
+          <option value="BTC">BTC</option>
+          <option value="LTC">LTC</option>
+          <option value="TRX">TRX</option>
+        </select>
+      </div>
+      
+      <button type="submit" class="btn" id="submitBtn">
+        Перейти к оплате →
+      </button>
+    </form>
+    
+    <div class="info-box">
+      <strong>Как это работает:</strong><br><br>
+      1. Форма отправляет запрос на <code>сервер мерчанта</code><br>
+      2. Сервер генерирует подписанный URL<br>
+      3. Пользователь редиректится на <code>платёжный шлюз</code><br>
+      4. После оплаты — редирект обратно на <code>success_url</code>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // КОНФИГУРАЦИЯ - ЗАМЕНИТЕ НА СВОИ ЗНАЧЕНИЯ
+    // ═══════════════════════════════════════════════════════════════
+    
+    const CONFIG = {
+      // URL вашего сервера мерчанта
+      MERCHANT_SERVER: 'http://localhost:4000',
+      
+      // ID текущего пользователя (обычно из сессии/авторизации)
+      USER_ID: 'user-123',
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    // ВАРИАНТ 1: Через сервер мерчанта
+    // ═══════════════════════════════════════════════════════════════
+    
+    document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submitBtn');
+      const errorDiv = document.getElementById('error');
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Загрузка...';
+      errorDiv.style.display = 'none';
+      
+      try {
+        const response = await fetch(`${CONFIG.MERCHANT_SERVER}/api/payments/checkout-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: CONFIG.USER_ID,
+            amount: document.getElementById('amount').value,
+            currency: document.getElementById('currency').value,
+            network: document.getElementById('network').value,
+            description: 'Пополнение баланса',
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          window.location.href = data.data.checkout_url;
+        } else {
+          throw new Error(data.error || 'Ошибка создания платежа');
+        }
+        
+      } catch (error) {
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Перейти к оплате →';
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // ВАРИАНТ 2: Прямая генерация URL на клиенте (НЕ рекомендуется)
+    // Только для демонстрации!
+    // ═══════════════════════════════════════════════════════════════
+    
+    /*
+    async function createCheckoutUrlDirectly(amount, currency, network) {
+      const SITE_KEY = 'site_xxx';
+      const WEBHOOK_SECRET = 'secret_xxx';
+      
+      const orderId = 'ORDER-' + Date.now();
+      const signData = `${SITE_KEY}:${amount}:${currency}:${network}:${orderId}`;
+      
+      // Для подписи нужна библиотека crypto
+      // На клиенте это невозможно безопасно сделать!
+      
+      const url = new URL('https://gateway.example.com/checkout/pay');
+      url.searchParams.set('site_key', SITE_KEY);
+      url.searchParams.set('amount', amount);
+      url.searchParams.set('currency', currency);
+      url.searchParams.set('network', network);
+      url.searchParams.set('order_id', orderId);
+      url.searchParams.set('signature', '...');
+      
+      return url.toString();
+    }
+    */
+  </script>
+</body>
+</html>
